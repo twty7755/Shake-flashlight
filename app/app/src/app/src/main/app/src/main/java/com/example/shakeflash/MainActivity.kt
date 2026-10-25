@@ -7,9 +7,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 
@@ -22,7 +24,20 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            buildScreen()
+        } catch (t: Throwable) {
+            val tv = TextView(this).apply {
+                text = Log.getStackTraceString(t)
+                textSize = 12f
+                setTextIsSelectable(true)
+                setPadding(24, 24, 24, 24)
+            }
+            setContentView(ScrollView(this).apply { addView(tv) })
+        }
+    }
 
+    private fun buildScreen() {
         val pad = (24 * resources.displayMetrics.density).toInt()
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -30,7 +45,7 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
 
-        val title = TextView(this).apply {
+        val titleView = TextView(this).apply {
             text = "Shake Flashlight"
             textSize = 28f
             gravity = Gravity.CENTER
@@ -50,7 +65,7 @@ class MainActivity : Activity() {
             setOnClickListener { toggleService() }
         }
 
-        layout.addView(title)
+        layout.addView(titleView)
         layout.addView(hint)
         layout.addView(status)
         layout.addView(button)
@@ -70,17 +85,21 @@ class MainActivity : Activity() {
     }
 
     private fun toggleService() {
-        val running = prefs.getBoolean("running", false)
-        val intent = Intent(this, ShakeService::class.java)
-        if (running) {
-            stopService(intent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        try {
+            val running = prefs.getBoolean("running", false)
+            val intent = Intent(this, ShakeService::class.java)
+            if (running) {
+                stopService(intent)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            prefs.edit().putBoolean("running", !running).apply()
+            refreshUi()
+        } catch (t: Throwable) {
+            Toast.makeText(this, Log.getStackTraceString(t).take(300), Toast.LENGTH_LONG).show()
         }
-        prefs.edit().putBoolean("running", !running).apply()
-        refreshUi()
     }
 
     private fun refreshUi() {
